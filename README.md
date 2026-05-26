@@ -1,4 +1,4 @@
-# 🔐 CyberHunt v2 — Cybersecurity Internship Intelligence
+# 🔐 CyberHunt v2 — Cybersecurity Jobs Intelligence
 
 A professional LAN-accessible web app that scrapes **10+ platforms** for cybersecurity
 internships and jobs in Tunisia and remotely worldwide.
