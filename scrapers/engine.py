@@ -110,6 +110,7 @@ class Engine:
         selected = list(SCRAPERS.keys()) if "all" in sources else [s for s in sources if s in SCRAPERS]
         progress["total"] = len(selected)
         progress["completed"] = 0
+        progress["errors"] = []
         all_new = []
 
         for i, name in enumerate(selected):
@@ -128,8 +129,10 @@ class Engine:
                 progress["message"] = f"✓ {name}: {len(results)} listings"
                 progress["completed"] = i + 1
             except Exception as e:
+                error_msg = str(e)[:180]
                 logger.error(f"Scraper {name} crashed: {e}")
-                progress["message"] = f"⚠ {name} failed: {str(e)[:80]}"
+                progress["errors"].append(f"{name}: {error_msg}")
+                progress["message"] = f"⚠ {name} failed: {error_msg}"
             time.sleep(0.5)
 
         existing = self.load()
@@ -143,3 +146,5 @@ class Engine:
         progress["total_saved"] = len(final)
         progress["status"] = "done"
         progress["message"] = f"Complete! {len(all_new)} new • {len(final)} total saved"
+        if progress.get("errors"):
+            progress["message"] += f" • {len(progress['errors'])} scraper(s) failed"

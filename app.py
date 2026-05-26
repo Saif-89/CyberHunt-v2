@@ -10,7 +10,7 @@ CORS(app)
 
 DATA_FILE = "data/jobs.json"
 engine = Engine(DATA_FILE)
-PROGRESS = {"status": "idle", "message": "Ready", "progress": 0, "total": 0, "completed": 0}
+PROGRESS = {"status": "idle", "message": "Ready", "progress": 0, "total": 0, "completed": 0, "errors": []}
 
 def load():
     if os.path.exists(DATA_FILE):
@@ -133,7 +133,14 @@ def start_scrape():
     if PROGRESS.get("status") == "running":
         return jsonify({"error": "Scrape already running"}), 400
     sources = request.json.get("sources", ["all"])
-    PROGRESS = {"status": "running", "message": "Initializing...", "progress": 0, "total": 0, "completed": 0}
+    PROGRESS = {
+        "status": "running",
+        "message": "Initializing...",
+        "progress": 0,
+        "total": 0,
+        "completed": 0,
+        "errors": []
+    }
     def run():
         global PROGRESS
         try:
