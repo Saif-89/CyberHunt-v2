@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CyberHunt v2 — Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #07090d;
+  --surface: #0e1319;
+  --s2: #131a22;
+  --s3: #18212c;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --cyan: #22d3ee;
+  --green: #4ade80;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --violet: #a78bfa;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --muted2: #94a3b8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',monospace;min-height:100vh;overflow-x:hidden}
+
+/* Subtle grid texture */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(34,211,238,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,0.025) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0}
+
+/* Glow orbs */
+.orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(80px);opacity:0.18}
+.orb1{width:500px;height:500px;background:var(--cyan);top:-200px;right:-100px}
+.orb2{width:400px;height:400px;background:var(--violet);bottom:-150px;left:-100px}
+
+.wrap{position:relative;z-index:1}
+
+/* ── HEADER ── */
+header{background:rgba(7,9,13,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;padding:0 28px}
+.hdr{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-badge{width:38px;height:38px;background:linear-gradient(135deg,var(--cyan),#0891b2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;box-shadow:0 0 16px rgba(34,211,238,0.3)}
+.logo-name{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-0.5px}
+.logo-name span{color:var(--cyan)}
+.logo-ver{font-size:9px;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-top:1px}
+.status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid var(--border2);border-radius:99px;font-size:11px;color:var(--muted2)}
+.pulse-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse-anim 2s ease-in-out infinite}
+@keyframes pulse-anim{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(74,222,128,0.4)}50%{opacity:.7;box-shadow:0 0 0 6px rgba(74,222,128,0)}}
+.hdr-right{display:flex;gap:10px;align-items:center}
+
+/* ── BUTTONS ── */
+.btn{padding:9px 18px;border-radius:8px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;cursor:pointer;border:none;transition:all .18s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;letter-spacing:.3px}
+.btn-primary{background:var(--cyan);color:#07090d;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.8px}
+.btn-primary:hover{background:#67e8f9;box-shadow:0 0 22px rgba(34,211,238,.45);transform:translateY(-1px)}
+.btn-primary:disabled{background:#1e3a4a;color:var(--muted);cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--muted2)}
+.btn-ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.btn-danger{background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.3);color:var(--red)}
+.btn-danger:hover{background:rgba(248,113,113,.25)}
+
+/* ── MAIN LAYOUT ── */
+main{padding:28px}
+
+/* ── NAV TABS ── */
+.tabs{display:flex;gap:4px;margin-bottom:28px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px}
+.tab{padding:9px 20px;border-radius:7px;font-size:12px;cursor:pointer;color:var(--muted);transition:all .18s;border:none;background:none;font-family:'IBM Plex Mono',monospace;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--s3);color:var(--cyan);border:1px solid var(--border2)}
+
+/* ── STAT CARDS ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:20px 22px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
+.stat:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-accent{position:absolute;top:0;left:0;right:0;height:2px}
+.stat-label{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.stat-val{font-family:'Syne',sans-serif;font-size:34px;font-weight:800;line-height:1;margin-bottom:4px}
+.stat-sub{font-size:10px;color:var(--muted)}
+.stat-delta{font-size:10px;margin-top:5px;display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px}
+.delta-up{background:rgba(74,222,128,.1);color:var(--green)}
+.delta-neutral{background:rgba(148,163,184,.1);color:var(--muted2)}
+
+/* ── SOURCE PICKER ── */
+.source-panel{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:18px 22px;margin-bottom:20px}
+.panel-label{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{padding:5px 14px;border-radius:99px;font-size:11px;cursor:pointer;border:1px solid var(--border2);background:var(--s2);color:var(--muted);transition:all .18s;display:flex;align-items:center;gap:6px;user-select:none}
+.chip:hover{border-color:var(--cyan);color:var(--text)}
+.chip.active{border-color:var(--cyan);background:rgba(34,211,238,.09);color:var(--cyan)}
+.chip-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+/* ── PROGRESS ── */
+.progress-panel{background:var(--surface);border:1px solid rgba(34,211,238,.2);border-radius:13px;padding:18px 22px;margin-bottom:20px;display:none}
+.progress-panel.active{display:block}
+.prog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.prog-msg{font-size:12px;color:var(--cyan);display:flex;align-items:center;gap:8px}
+.spinner{width:13px;height:13px;border:2px solid rgba(34,211,238,.2);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.prog-pct{font-size:11px;color:var(--muted);font-family:'Syne',sans-serif;font-weight:700}
+.prog-track{background:var(--s3);border-radius:4px;height:3px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:4px;transition:width .4s ease;box-shadow:0 0 8px rgba(34,211,238,.4)}
+.prog-sources{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.src-badge{font-size:10px;padding:2px 9px;border-radius:4px;border:1px solid var(--border)}
+.src-badge.done{border-color:rgba(74,222,128,.3);color:var(--green);background:rgba(74,222,128,.07)}
+.src-badge.running{border-color:rgba(34,211,238,.3);color:var(--cyan);background:rgba(34,211,238,.07);animation:badge-pulse 1.2s ease-in-out infinite}
+.src-badge.pending{color:var(--muted)}
+@keyframes badge-pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* ── FILTERS ── */
+.filters{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:16px 22px;margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.search-wrap{flex:1;min-width:200px;position:relative}
+.search-wrap input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:7px;padding:9px 12px 9px 36px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;outline:none;transition:border-color .18s}
+.search-wrap input:focus{border-color:var(--cyan)}
+.search-wrap input::placeholder{color:var(--muted)}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px}
+select{background:var(--s2);border:1px solid var(--border2);border-radius:7px;padding:9px 12px;color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;outline:none;cursor:pointer;transition:border-color .18s}
+select:focus{border-color:var(--cyan)}
+.filter-label{font-size:10px;color:var(--muted);display:block;margin-bottom:4px}
+
+/* ── RESULTS HEADER ── */
+.results-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.results-count{font-size:12px;color:var(--muted)}
+.results-count b{color:var(--cyan)}
+.view-toggle{display:flex;gap:4px}
+.vbtn{padding:6px 10px;border:1px solid var(--border2);background:var(--s2);border-radius:6px;cursor:pointer;color:var(--muted);font-size:14px;transition:all .15s}
+.vbtn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,.08)}
+
+/* ── JOB CARDS ── */
+#jobs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(370px,1fr));gap:15px}
+#jobs-grid.list-view{grid-template-columns:1fr}
+
+.job-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:20px;position:relative;overflow:hidden;transition:all .22s;animation:fadeUp .35s ease both;cursor:default}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.job-card:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.job-card.high-rel{border-color:rgba(34,211,238,.2)}
+.job-card.high-rel::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--cyan),transparent)}
+
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:8px}
+.card-badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{padding:3px 9px;border-radius:99px;font-size:9px;font-weight:500;letter-spacing:.5px;text-transform:uppercase}
+
+/* source badges */
+.b-keejob{background:rgba(251,191,36,.1);color:var(--amber);border:1px solid rgba(251,191,36,.2)}
+.b-emploitn{background:rgba(251,191,36,.1);color:var(--amber);border:1px solid rgba(251,191,36,.2)}
+.b-tunisiejobs{background:rgba(251,191,36,.1);color:var(--amber);border:1px solid rgba(251,191,36,.2)}
+.b-remoteok{background:rgba(74,222,128,.1);color:var(--green);border:1px solid rgba(74,222,128,.2)}
+.b-jobicy{background:rgba(74,222,128,.1);color:var(--green);border:1px solid rgba(74,222,128,.2)}
+.b-arbeitnow{background:rgba(167,139,250,.1);color:var(--violet);border:1px solid rgba(167,139,250,.2)}
+.b-weworkremotely{background:rgba(167,139,250,.1);color:var(--violet);border:1px solid rgba(167,139,250,.2)}
+.b-linkedin{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.2)}
+.b-indeed{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.2)}
+.b-adzuna{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.2)}
+.b-glassdoor{background:rgba(34,211,238,.1);color:var(--cyan);border:1px solid rgba(34,211,238,.2)}
+.b-default{background:rgba(100,116,139,.1);color:var(--muted2);border:1px solid var(--border)}
+
+/* type badges */
+.b-tn{background:rgba(251,191,36,.08);color:var(--amber);border:1px solid rgba(251,191,36,.15)}
+.b-remote{background:rgba(74,222,128,.08);color:var(--green);border:1px solid rgba(74,222,128,.15)}
+.b-int{background:rgba(167,139,250,.08);color:var(--violet);border:1px solid rgba(167,139,250,.15)}
+
+.rel-score{display:flex;align-items:center;gap:3px}
+.rel-pip{width:6px;height:6px;border-radius:50%}
+
+.card-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--text);margin-bottom:5px;line-height:1.35}
+.card-company{font-size:12px;color:var(--cyan);margin-bottom:10px;font-weight:500}
+.card-meta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:11px}
+.meta-item{font-size:10px;color:var(--muted2);display:flex;align-items:center;gap:4px}
+.card-desc{font-size:11px;color:var(--muted);line-height:1.65;margin-bottom:13px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-footer{display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--border)}
+.card-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{padding:2px 7px;background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.1);border-radius:4px;font-size:9px;color:var(--muted2)}
+.view-link{padding:7px 14px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.18);border-radius:6px;color:var(--cyan);font-size:11px;text-decoration:none;transition:all .18s;font-weight:500;flex-shrink:0}
+.view-link:hover{background:var(--cyan);color:#07090d}
+.no-link{color:var(--muted);font-size:10px;font-style:italic}
+
+/* ── ANALYTICS TAB ── */
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.analytics-grid.full{grid-template-columns:1fr}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:22px}
+.chart-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;margin-bottom:4px;color:var(--text)}
+.chart-sub{font-size:10px;color:var(--muted);margin-bottom:18px}
+.chart-wrap{position:relative}
+
+.rel-bar{display:flex;gap:0;border-radius:6px;overflow:hidden;height:10px;margin-bottom:8px}
+.rel-seg{height:100%;transition:width .5s ease}
+.rel-legend{display:flex;gap:16px;font-size:10px;color:var(--muted)}
+.rel-legend span{display:flex;align-items:center;gap:5px}
+.rl-dot{width:8px;height:8px;border-radius:2px}
+
+.kw-list{display:flex;flex-direction:column;gap:7px}
+.kw-row{display:flex;align-items:center;gap:8px}
+.kw-name{font-size:11px;color:var(--muted2);width:120px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kw-bar-wrap{flex:1;background:var(--s3);border-radius:3px;height:5px;overflow:hidden}
+.kw-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));border-radius:3px;transition:width .6s ease}
+.kw-count{font-size:10px;color:var(--muted);width:24px;text-align:right;flex-shrink:0}
+
+.co-list{display:flex;flex-direction:column;gap:6px}
+.co-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--s2);border-radius:7px;font-size:11px}
+.co-name{color:var(--muted2)}
+.co-count{color:var(--cyan);font-family:'Syne',sans-serif;font-weight:700}
+
+/* ── EMPTY / LOADING ── */
+.empty{grid-column:1/-1;text-align:center;padding:80px 20px}
+.empty-icon{font-size:52px;margin-bottom:20px;opacity:.35}
+.empty h3{font-family:'Syne',sans-serif;font-size:18px;margin-bottom:8px}
+.empty p{font-size:11px;color:var(--muted);line-height:1.8}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:9px;font-size:12px;z-index:9999;transition:all .25s;transform:translateY(80px);opacity:0;pointer-events:none;display:flex;align-items:center;gap:9px;backdrop-filter:blur(8px);border:1px solid}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.3);color:var(--green)}
+.toast.error{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--red)}
+.toast.info{background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.25);color:var(--cyan)}
+
+/* ── PAGINATION ── */
+.pagination{display:flex;justify-content:center;gap:6px;margin-top:28px;flex-wrap:wrap}
+.page-btn{padding:7px 13px;border:1px solid var(--border2);background:var(--s2);border-radius:6px;cursor:pointer;color:var(--muted2);font-size:11px;font-family:'IBM Plex Mono',monospace;transition:all .15s}
+.page-btn:hover,.page-btn.active{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,.08)}
+.page-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--s3);border-radius:3px}
+
+@media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr)}.analytics-grid{grid-template-columns:1fr}#jobs-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.stats-row{grid-template-columns:1fr}.hdr{flex-wrap:wrap;height:auto;padding:12px 0}}
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="wrap">
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="hdr">
+    <div class="logo">
+      <div class="logo-badge">🔐</div>
+      <div>
+        <div class="logo-name">Cyber<span>Hunt</span> v2</div>
+        <div class="logo-ver"><span class="pulse-dot" style="display:inline-block;margin-right:4px"></span>Internship Intelligence — Tunisia & Remote</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="status-pill"><span class="pulse-dot"></span><span id="hdr-status">Ready</span></div>
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ CSV</button>
+      <button class="btn btn-danger" onclick="clearAll()">✕ Clear</button>
+      <button class="btn btn-primary" id="hunt-btn" onclick="startScrape()">⚡ HUNT NOW</button>
+    </div>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- STATS -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat">
+      <div class="stat-accent" style="background:linear-gradient(90deg,var(--cyan),transparent)"></div>
+      <div class="stat-label">Total Jobs</div>
+      <div class="stat-val" id="s-total" style="color:var(--cyan)">—</div>
+      <div class="stat-sub">unique listings</div>
+    </div>
+    <div class="stat">
+      <div class="stat-accent" style="background:linear-gradient(90deg,var(--amber),transparent)"></div>
+      <div class="stat-label">Tunisia 🇹🇳</div>
+      <div class="stat-val" id="s-tn" style="color:var(--amber)">—</div>
+      <div class="stat-sub">local internships</div>
+    </div>
+    <div class="stat">
+      <div class="stat-accent" style="background:linear-gradient(90deg,var(--green),transparent)"></div>
+      <div class="stat-label">Remote / Intl 🌍</div>
+      <div class="stat-val" id="s-remote" style="color:var(--green)">—</div>
+      <div class="stat-sub">global opportunities</div>
+    </div>
+    <div class="stat">
+      <div class="stat-accent" style="background:linear-gradient(90deg,var(--violet),transparent)"></div>
+      <div class="stat-label">Avg Relevance</div>
+      <div class="stat-val" id="s-rel" style="color:var(--violet)">—</div>
+      <div class="stat-sub">out of 10</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('listings',this)">📋 Listings</button>
+    <button class="tab" onclick="switchTab('analytics',this)">📊 Analytics</button>
+    <button class="tab" onclick="switchTab('scrape',this)">⚙ Scrape Control</button>
+  </div>
+
+  <!-- ── TAB: SCRAPE CONTROL ── -->
+  <div id="tab-scrape" style="display:none">
+    <div class="source-panel">
+      <div class="panel-label">Select sources to scrape</div>
+      <div class="chips">
+        <div class="chip active" data-source="all" onclick="toggleChip(this)"><span class="chip-dot"></span>All Sources</div>
+        <div class="chip" data-source="keejob" onclick="toggleChip(this)"><span class="chip-dot"></span>Keejob 🇹🇳</div>
+        <div class="chip" data-source="emploi_tn" onclick="toggleChip(this)"><span class="chip-dot"></span>Emploi.com.tn 🇹🇳</div>
+        <div class="chip" data-source="tunisiejobs" onclick="toggleChip(this)"><span class="chip-dot"></span>TunisieJobs 🇹🇳</div>
+        <div class="chip" data-source="remoteok" onclick="toggleChip(this)"><span class="chip-dot"></span>RemoteOK 🌐</div>
+        <div class="chip" data-source="jobicy" onclick="toggleChip(this)"><span class="chip-dot"></span>Jobicy 🌐</div>
+        <div class="chip" data-source="arbeitnow" onclick="toggleChip(this)"><span class="chip-dot"></span>Arbeitnow EU</div>
+        <div class="chip" data-source="weworkremotely" onclick="toggleChip(this)"><span class="chip-dot"></span>WeWorkRemotely</div>
+        <div class="chip" data-source="indeed" onclick="toggleChip(this)"><span class="chip-dot"></span>Indeed</div>
+        <div class="chip" data-source="linkedin" onclick="toggleChip(this)"><span class="chip-dot"></span>LinkedIn</div>
+        <div class="chip" data-source="adzuna" onclick="toggleChip(this)"><span class="chip-dot"></span>Adzuna EU</div>
+        <div class="chip" data-source="glassdoor" onclick="toggleChip(this)"><span class="chip-dot"></span>Glassdoor</div>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="progress-panel" id="prog-panel">
+      <div class="prog-head">
+        <div class="prog-msg"><div class="spinner"></div><span id="prog-msg">Initializing...</span></div>
+        <span class="prog-pct" id="prog-pct">0%</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="prog-sources" id="prog-sources"></div>
+    </div>
+
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="hunt-btn2" style="font-size:12px;padding:11px 28px" onclick="startScrape()">⚡ START HUNT</button>
+      <button class="btn btn-ghost" onclick="clearAll()">✕ Clear All Data</button>
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+
+    <div style="margin-top:20px;padding:18px;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+      <div class="panel-label" style="margin-bottom:10px">How this works</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.9">
+        ▸ <b style="color:var(--muted2)">Keejob, Emploi.com.tn, TunisieJobs</b> — Tunisian job boards scraped for cybersecurity stages & emplois<br>
+        ▸ <b style="color:var(--muted2)">RemoteOK, Jobicy</b> — public JSON APIs, best quality remote data<br>
+        ▸ <b style="color:var(--muted2)">Arbeitnow</b> — European remote jobs via open API<br>
+        ▸ <b style="color:var(--muted2)">WeWorkRemotely, LinkedIn, Indeed, Adzuna, Glassdoor</b> — scraped with smart rotation & deduplication<br>
+        ▸ All results are <b style="color:var(--cyan)">scored 0–10</b> for cybersecurity relevance before display<br>
+        ▸ Results are <b style="color:var(--cyan)">deduplicated</b> by title + company across sources
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: ANALYTICS ── -->
+  <div id="tab-analytics" style="display:none">
+    <div class="analytics-grid" style="margin-bottom:18px">
+      <!-- Region Chart -->
+      <div class="chart-card">
+        <div class="chart-title">Jobs by Region</div>
+        <div class="chart-sub">Where opportunities are located</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="c-region" role="img" aria-label="Doughnut chart showing jobs by region"></canvas></div>
+        <div id="region-legend" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:10px;color:var(--muted)"></div>
+      </div>
+      <!-- Source Chart -->
+      <div class="chart-card">
+        <div class="chart-title">Jobs by Source</div>
+        <div class="chart-sub">Which platforms delivered results</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="c-sources" role="img" aria-label="Bar chart showing job counts by source"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Keyword Heatmap + Top Companies -->
+    <div class="analytics-grid" style="margin-bottom:18px">
+      <div class="chart-card">
+        <div class="chart-title">Cybersec Keyword Frequency</div>
+        <div class="chart-sub">Most demanded skills in listings</div>
+        <div class="kw-list" id="kw-list"><div style="color:var(--muted);font-size:11px">Run a scrape first</div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top Hiring Companies</div>
+        <div class="chart-sub">Most active recruiters found</div>
+        <div class="co-list" id="co-list"><div style="color:var(--muted);font-size:11px">Run a scrape first</div></div>
+      </div>
+    </div>
+
+    <!-- Relevance dist -->
+    <div class="chart-card" style="margin-bottom:18px">
+      <div class="chart-title">Relevance Score Distribution</div>
+      <div class="chart-sub">How well matched listings are to cybersecurity roles (0–10)</div>
+      <div class="rel-bar" id="rel-bar"></div>
+      <div class="rel-legend">
+        <span><span class="rl-dot" style="background:var(--cyan)"></span>High (6–10) <b id="rl-h" style="color:var(--text)">—</b></span>
+        <span><span class="rl-dot" style="background:var(--amber)"></span>Medium (3–5) <b id="rl-m" style="color:var(--text)">—</b></span>
+        <span><span class="rl-dot" style="background:var(--muted)"></span>Low (0–2) <b id="rl-l" style="color:var(--text)">—</b></span>
+      </div>
+    </div>
+
+    <!-- Type Donut -->
+    <div class="analytics-grid">
+      <div class="chart-card">
+        <div class="chart-title">Job Types</div>
+        <div class="chart-sub">Internship vs Remote vs Full-time</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="c-types" role="img" aria-label="Pie chart of job types"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Collection Timeline</div>
+        <div class="chart-sub">When listings were gathered</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="c-timeline" role="img" aria-label="Line chart of listings over time"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: LISTINGS ── -->
+  <div id="tab-listings">
+    <div class="filters">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="q-input" placeholder="Search title, company, keyword, tag..." oninput="debounceFilter()"/>
+      </div>
+      <select id="f-region" onchange="loadJobs(1)">
+        <option value="all">All Regions</option>
+        <option value="Tunisia">🇹🇳 Tunisia</option>
+        <option value="Remote">🌐 Remote</option>
+        <option value="France">🇫🇷 France</option>
+        <option value="Germany">🇩🇪 Germany</option>
+        <option value="UAE">🇦🇪 UAE</option>
+        <option value="UK">🇬🇧 UK</option>
+        <option value="Canada">🇨🇦 Canada</option>
+        <option value="International">🌍 International</option>
+      </select>
+      <select id="f-source" onchange="loadJobs(1)">
+        <option value="all">All Sources</option>
+        <option value="keejob">Keejob</option>
+        <option value="emploi">Emploi.com.tn</option>
+        <option value="tunisie">TunisieJobs</option>
+        <option value="remoteok">RemoteOK</option>
+        <option value="jobicy">Jobicy</option>
+        <option value="arbeitnow">Arbeitnow</option>
+        <option value="weworkremotely">WeWorkRemotely</option>
+        <option value="indeed">Indeed</option>
+        <option value="linkedin">LinkedIn</option>
+        <option value="adzuna">Adzuna</option>
+        <option value="glassdoor">Glassdoor</option>
+      </select>
+      <select id="f-sort" onchange="loadJobs(1)">
+        <option value="relevance">⭐ Best Match</option>
+        <option value="date">🕒 Newest</option>
+        <option value="company">🏢 Company A–Z</option>
+      </select>
+    </div>
+
+    <div class="results-hdr">
+      <div class="results-count"><b id="res-count">0</b> results · <span id="res-pages">page 1</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="last-upd" style="font-size:10px;color:var(--muted)"></span>
+        <div class="view-toggle">
+          <button class="vbtn active" onclick="setView('grid',this)" title="Grid">⊞</button>
+          <button class="vbtn" onclick="setView('list',this)" title="List">☰</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="jobs-grid">
+      <div class="empty">
+        <div class="empty-icon">🛡</div>
+        <h3>No listings yet</h3>
+        <p>Go to <b style="color:var(--cyan)">Scrape Control</b> and hit <b style="color:var(--cyan)">HUNT NOW</b> to start gathering cybersec opportunities<br>from Tunisia job boards, RemoteOK, Jobicy, Arbeitnow, LinkedIn and more.</p>
+      </div>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+</main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+let currentPage = 1;
+let totalPages = 1;
+let selectedSources = ["all"];
+let activeTab = "listings";
+let pollTimer = null;
+let filterTimer = null;
+let charts = {};
+let scrapeSourceNames = [];
+
+// ── TABS ──
+function switchTab(tab, el) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['listings','analytics','scrape'].forEach(t => {
+    const el = document.getElementById('tab-'+t);
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+  });
+  if (tab === 'analytics') loadAnalytics();
+}
+
+// ── CHIP TOGGLE ──
+function toggleChip(el) {
+  const src = el.dataset.source;
+  const allChip = document.querySelector('[data-source="all"]');
+  if (src === 'all') {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    selectedSources = ['all'];
+  } else {
+    allChip.classList.remove('active');
+    el.classList.toggle('active');
+    selectedSources = [...document.querySelectorAll('.chip.active')].map(c => c.dataset.source);
+    if (!selectedSources.length) { selectedSources = ['all']; allChip.classList.add('active'); }
+  }
+}
+
+function setView(v, btn) {
+  document.getElementById('jobs-grid').className = v === 'list' ? 'list-view' : '';
+  document.querySelectorAll('.vbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // rerender for list layout
+  loadJobs(currentPage);
+}
+
+// ── SCRAPE ──
+async function startScrape() {
+  const btns = document.querySelectorAll('#hunt-btn,#hunt-btn2');
+  btns.forEach(b => { b.disabled = true; b.textContent = '⏳ Hunting...'; });
+  document.getElementById('prog-panel').classList.add('active');
+  scrapeSourceNames = selectedSources[0] === 'all'
+    ? ['keejob','emploi_tn','tunisiejobs','remoteok','jobicy','arbeitnow','weworkremotely','indeed','linkedin','adzuna','glassdoor']
+    : selectedSources;
+  renderSourceBadges('pending');
+  if (activeTab !== 'scrape') switchTab('scrape', document.querySelectorAll('.tab')[2]);
+
+  try {
+    const r = await fetch('/api/scrape', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({sources: selectedSources})
+    });
+    const d = await r.json();
+    if (d.error) { toast(d.error,'error'); resetHuntBtn(); return; }
+    toast('Hunt started — scanning all platforms...','info');
+    pollProgress();
+  } catch(e) {
+    toast('⚠ Backend not running. Start with: python app.py','error');
+    resetHuntBtn();
+  }
+}
+
+function resetHuntBtn() {
+  document.querySelectorAll('#hunt-btn,#hunt-btn2').forEach(b => {
+    b.disabled = false; b.textContent = b.id==='hunt-btn' ? '⚡ HUNT NOW' : '⚡ START HUNT';
+  });
+}
+
+function renderSourceBadges(mode) {
+  const wrap = document.getElementById('prog-sources');
+  wrap.innerHTML = scrapeSourceNames.map(s => `<span class="src-badge ${mode}" id="badge-${s}">${s}</span>`).join('');
+}
+
+function pollProgress() {
+  if (pollTimer) clearInterval(pollTimer);
+  let currentSrc = null;
+  pollTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/api/progress');
+      const p = await r.json();
+      const pct = p.total > 0 ? Math.round((p.progress / p.total) * 100) : 0;
+      document.getElementById('prog-fill').style.width = pct+'%';
+      document.getElementById('prog-msg').textContent = p.message || '...';
+      document.getElementById('prog-pct').textContent = pct+'%';
+      document.getElementById('hdr-status').textContent = p.message || 'Running...';
+
+      // update badge
+      if (p.current && p.current !== currentSrc) {
+        if (currentSrc) {
+          const prev = document.getElementById('badge-'+currentSrc);
+          if (prev) { prev.className = 'src-badge done'; prev.textContent = '✓ '+currentSrc; }
+        }
+        currentSrc = p.current;
+        const cur = document.getElementById('badge-'+currentSrc);
+        if (cur) cur.className = 'src-badge running';
+      }
+
+      if (p.status === 'done' || p.status === 'error') {
+        clearInterval(pollTimer);
+        if (currentSrc) {
+          const last = document.getElementById('badge-'+currentSrc);
+          if (last) { last.className = 'src-badge done'; last.textContent = '✓ '+currentSrc; }
+        }
+        resetHuntBtn();
+        if (p.status === 'done') {
+          toast(`✅ Done! ${p.new_found||0} new listings • ${p.total_saved||0} total saved`,'success');
+          document.getElementById('prog-fill').style.width = '100%';
+          document.getElementById('hdr-status').textContent = 'Ready';
+          loadJobs(1);
+          loadStats();
+          setTimeout(() => document.getElementById('prog-panel').classList.remove('active'), 5000);
+        } else {
+          toast('Error: '+p.message,'error');
+          document.getElementById('hdr-status').textContent = 'Error';
+        }
+      }
+    } catch(e) {}
+  }, 1300);
+}
+
+// ── JOBS ──
+function debounceFilter() {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(() => loadJobs(1), 350);
+}
+
+async function loadJobs(page=1) {
+  currentPage = page;
+  const q = document.getElementById('q-input').value.trim();
+  const region = document.getElementById('f-region').value;
+  const source = document.getElementById('f-source').value;
+  const sort = document.getElementById('f-sort').value;
+  const isListView = document.getElementById('jobs-grid').classList.contains('list-view');
+
+  const params = new URLSearchParams({ page, per_page:24, sort });
+  if (q) params.set('q', q);
+  if (region !== 'all') params.set('region', region);
+  if (source !== 'all') params.set('source', source);
+
+  const grid = document.getElementById('jobs-grid');
+  grid.innerHTML = `<div class="empty"><div class="empty-icon" style="animation:pulse-anim 1.2s infinite">🔍</div><h3>Loading...</h3></div>`;
+
+  try {
+    const r = await fetch('/api/jobs?'+params);
+    const data = await r.json();
+    totalPages = data.pages || 1;
+    document.getElementById('res-count').textContent = data.total || 0;
+    document.getElementById('res-pages').textContent = `page ${page} of ${totalPages}`;
+    renderJobs(data.jobs || [], isListView);
+    renderPagination(page, totalPages);
+  } catch(e) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><h3>Backend offline</h3><p>Run <code style="color:var(--cyan)">python app.py</code> in the project folder<br>then refresh this page.</p></div>`;
+  }
+}
+
+function sourceClass(src) {
+  const s = (src||'').toLowerCase().replace(/[^a-z]/g,'');
+  const map = {keejob:'keejob',emploicomtn:'emploitn',tunisiejobs:'tunisiejobs',remoteok:'remoteok',jobicy:'jobicy',arbeitnow:'arbeitnow',weworkremotely:'weworkremotely',linkedin:'linkedin',indeed:'indeed',adzuna:'adzuna',glassdoor:'glassdoor'};
+  return 'b-'+(map[s]||'default');
+}
+
+function regionBadge(region) {
+  if (!region) return '';
+  const r = region.toLowerCase();
+  let cls = 'b-int', label = region;
+  if (r.includes('tunis')) { cls='b-tn'; label=region; }
+  else if (r.includes('remote')) { cls='b-remote'; label=region; }
+  return `<span class="badge ${cls}">${h(label)}</span>`;
+}
+
+function relevanceDots(score) {
+  const s = score || 0;
+  const color = s >= 6 ? 'var(--cyan)' : s >= 3 ? 'var(--amber)' : 'var(--muted)';
+  return `<div class="rel-score" title="Relevance: ${s}/10">
+    ${Array.from({length:5},(_,i)=>`<div class="rel-pip" style="background:${i < Math.round(s/2) ? color : 'var(--s3)'}"></div>`).join('')}
+  </div>`;
+}
+
+function renderJobs(jobs, listView=false) {
+  const grid = document.getElementById('jobs-grid');
+  if (!jobs.length) {
+    grid.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><h3>No results</h3><p>Try different filters or run a new hunt.</p></div>`;
+    return;
+  }
+  const isHigh = j => (j.relevance_score||0) >= 6;
+  grid.innerHTML = jobs.map((j,i) => `
+    <div class="job-card${isHigh(j)?' high-rel':''}" style="animation-delay:${Math.min(i,15)*0.03}s">
+      <div class="card-top">
+        <div class="card-badges">
+          <span class="badge ${sourceClass(j.source)}">${h(j.source||'?')}</span>
+          ${regionBadge(j.region)}
+        </div>
+        ${relevanceDots(j.relevance_score)}
+      </div>
+      <div class="card-title">${h(j.title)}</div>
+      <div class="card-company">@ ${h(j.company)}</div>
+      <div class="card-meta">
+        <span class="meta-item">📍 ${h(j.location||'N/A')}</span>
+        <span class="meta-item">🏷 ${h(j.type||'Internship')}</span>
+        ${j.salary ? `<span class="meta-item">💰 ${h(j.salary)}</span>` : ''}
+        ${j.posted ? `<span class="meta-item">📅 ${h(j.posted).slice(0,20)}</span>` : ''}
+      </div>
+      ${j.description ? `<div class="card-desc">${h(j.description)}</div>` : ''}
+      <div class="card-footer">
+        <div class="card-tags">${(j.tags||[]).slice(0,3).map(t=>`<span class="tag">${h(t)}</span>`).join('')}</div>
+        ${j.url && j.url!=='#' ? `<a class="view-link" href="${h(j.url)}" target="_blank" rel="noopener noreferrer">View →</a>` : '<span class="no-link">no link</span>'}
+      </div>
+    </div>`).join('');
+}
+
+// ── PAGINATION ──
+function renderPagination(page, total) {
+  const wrap = document.getElementById('pagination');
+  if (total <= 1) { wrap.innerHTML=''; return; }
+  let html = `<button class="page-btn" onclick="loadJobs(${page-1})" ${page<=1?'disabled':''}>‹ Prev</button>`;
+  const start = Math.max(1, page-2), end = Math.min(total, page+2);
+  if (start>1) html += `<button class="page-btn" onclick="loadJobs(1)">1</button>${start>2?'<span style="color:var(--muted);padding:0 4px">…</span>':''}`;
+  for (let i=start;i<=end;i++) html += `<button class="page-btn${i===page?' active':''}" onclick="loadJobs(${i})">${i}</button>`;
+  if (end<total) html += `${end<total-1?'<span style="color:var(--muted);padding:0 4px">…</span>':''}<button class="page-btn" onclick="loadJobs(${total})">${total}</button>`;
+  html += `<button class="page-btn" onclick="loadJobs(${page+1})" ${page>=total?'disabled':''}>Next ›</button>`;
+  wrap.innerHTML = html;
+}
+
+// ── STATS ──
+async function loadStats() {
+  try {
+    const r = await fetch('/api/analytics');
+    const d = await r.json();
+    if (!d.total) return;
+    document.getElementById('s-total').textContent = d.total;
+    const tn = Object.entries(d.regions||{}).filter(([k])=>k.includes('Tunisia')).reduce((a,[,v])=>a+v,0);
+    const remote = Object.entries(d.regions||{}).filter(([k])=>k.includes('Remote')||k.includes('International')).reduce((a,[,v])=>a+v,0);
+    document.getElementById('s-tn').textContent = tn;
+    document.getElementById('s-remote').textContent = remote;
+    document.getElementById('s-rel').textContent = d.relevance?.avg || '—';
+    if (d.last_updated && d.last_updated!=='Never') {
+      const lu = new Date(d.last_updated);
+      document.getElementById('last-upd').textContent = 'Last updated: '+lu.toLocaleString();
+    }
+  } catch(e) {}
+}
+
+// ── ANALYTICS ──
+let analyticsLoaded = false;
+async function loadAnalytics() {
+  try {
+    const r = await fetch('/api/analytics');
+    const d = await r.json();
+    if (!d.total) return;
+
+    const isDark = true;
+    Chart.defaults.color = '#64748b';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+    // Region donut
+    const regionKeys = Object.keys(d.regions||{});
+    const regionVals = Object.values(d.regions||{});
+    const rColors = ['#22d3ee','#fbbf24','#4ade80','#a78bfa','#f87171','#fb923c','#38bdf8'];
+    destroyChart('c-region');
+    charts['c-region'] = new Chart(document.getElementById('c-region'), {
+      type:'doughnut',
+      data:{labels:regionKeys,datasets:[{data:regionVals,backgroundColor:rColors.slice(0,regionKeys.length),borderWidth:0,hoverBorderWidth:2,hoverBorderColor:'#fff'}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw} jobs`}}},cutout:'65%'}
+    });
+    // custom legend
+    document.getElementById('region-legend').innerHTML = regionKeys.map((k,i)=>
+      `<span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:2px;background:${rColors[i]||'#64748b'}"></span>${h(k)} <b style="color:var(--text)">${regionVals[i]}</b></span>`).join('');
+
+    // Source bar
+    const srcKeys = Object.keys(d.sources||{}).sort((a,b)=>d.sources[b]-d.sources[a]).slice(0,10);
+    const srcVals = srcKeys.map(k=>d.sources[k]);
+    destroyChart('c-sources');
+    charts['c-sources'] = new Chart(document.getElementById('c-sources'), {
+      type:'bar',
+      data:{labels:srcKeys,datasets:[{label:'Jobs',data:srcVals,backgroundColor:'rgba(34,211,238,0.7)',borderRadius:5,borderSkipped:false}]},
+      options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'}},y:{grid:{display:false}}}}
+    });
+
+    // Keywords
+    const kws = d.keywords||[];
+    const kwMax = kws[0]?.count || 1;
+    document.getElementById('kw-list').innerHTML = kws.map(k=>
+      `<div class="kw-row">
+        <span class="kw-name" title="${h(k.kw)}">${h(k.kw)}</span>
+        <div class="kw-bar-wrap"><div class="kw-bar" style="width:${Math.round(k.count/kwMax*100)}%"></div></div>
+        <span class="kw-count">${k.count}</span>
+      </div>`).join('');
+
+    // Top companies
+    document.getElementById('co-list').innerHTML = (d.top_companies||[]).map(c=>
+      `<div class="co-row"><span class="co-name">${h(c.name)}</span><span class="co-count">${c.count}</span></div>`).join('');
+
+    // Relevance bar
+    const rel = d.relevance||{};
+    const total = (rel.high||0)+(rel.medium||0)+(rel.low||0)||1;
+    document.getElementById('rel-bar').innerHTML = [
+      {v:rel.high,c:'var(--cyan)'},{v:rel.medium,c:'var(--amber)'},{v:rel.low,c:'var(--muted)'}
+    ].map(({v,c})=>`<div class="rel-seg" style="width:${Math.round((v||0)/total*100)}%;background:${c}"></div>`).join('');
+    document.getElementById('rl-h').textContent = rel.high||0;
+    document.getElementById('rl-m').textContent = rel.medium||0;
+    document.getElementById('rl-l').textContent = rel.low||0;
+
+    // Type donut
+    const tKeys = Object.keys(d.types||{});
+    const tVals = Object.values(d.types||{});
+    const tColors = ['#22d3ee','#4ade80','#fbbf24','#a78bfa','#f87171'];
+    destroyChart('c-types');
+    charts['c-types'] = new Chart(document.getElementById('c-types'), {
+      type:'doughnut',
+      data:{labels:tKeys,datasets:[{data:tVals,backgroundColor:tColors.slice(0,tKeys.length),borderWidth:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,font:{size:10}}}},cutout:'55%'}
+    });
+
+    // Timeline
+    const tl = d.timeline||[];
+    destroyChart('c-timeline');
+    charts['c-timeline'] = new Chart(document.getElementById('c-timeline'), {
+      type:'line',
+      data:{labels:tl.map(t=>t.date),datasets:[{label:'Listings',data:tl.map(t=>t.count),borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,0.08)',tension:0.4,pointRadius:3,pointBackgroundColor:'#22d3ee',fill:true}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{font:{size:9}}},y:{grid:{color:'rgba(255,255,255,0.04)'},beginAtZero:true}}}
+    });
+
+  } catch(e) { console.error('Analytics failed',e); }
+}
+
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ── EXPORT + CLEAR ──
+async function exportCSV() {
+  try {
+    const r = await fetch('/api/export?format=csv');
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `cyberhunt-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    toast('CSV exported!','success');
+  } catch(e) { toast('Export failed — backend offline?','error'); }
+}
+
+async function clearAll() {
+  if (!confirm('Delete all scraped data?')) return;
+  await fetch('/api/clear',{method:'POST'});
+  loadJobs(1); loadStats();
+  toast('Data cleared','info');
+}
+
+// ── TOAST ──
+let _tt;
+function toast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  clearTimeout(_tt); _tt = setTimeout(()=>t.classList.remove('show'), 4500);
+}
+
+// ── UTILS ──
+function h(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ──
+loadJobs(1);
+loadStats();
+</script>
+</body>
+</html>
